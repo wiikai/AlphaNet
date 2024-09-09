@@ -105,7 +105,7 @@ def rolling_train(data, window_size=504, train_size=252, val_size=252, step=63, 
         #     print(f'Batch nonrealize: {nonrealize}') 
         #     break 
     
-        model = AlphaNetV1(window=data_window, num_features=num_features, size=10, rolling=21)
+        model = AlphaNetV1(num_features=num_features, size=10, rolling=21)
         optimizer = optim.Adam(model.parameters(), lr=0.0001)
         train_losses, val_losses, best_model = train_model(train_dataloader, val_dataloader, model, optimizer, epochs=epochs, early_stopping=early_stopping)
         torch.save(best_model, f'./test/{test_dates[-step:][0].strftime("%Y%m%d")}-{test_dates[-1].strftime("%Y%m%d")},({round(train_losses[val_losses.index(min(val_losses))],3)},{round(min(val_losses),3)}).pth')
@@ -117,7 +117,7 @@ def rolling_train(data, window_size=504, train_size=252, val_size=252, step=63, 
         plt.ylabel('Loss')
         plt.legend()
         plt.tight_layout()
-        plt.savefig(f'learning_curve_{test_dates[-step:][0].strftime("%Y%m%d")}-{test_dates[-1].strftime("%Y%m%d")}.png')
+        plt.savefig(f'./test/learning_curve_{test_dates[-step:][0].strftime("%Y%m%d")}-{test_dates[-1].strftime("%Y%m%d")}.png')
         plt.close()
 
         model.load_state_dict(best_model)
@@ -134,7 +134,7 @@ def rolling_train(data, window_size=504, train_size=252, val_size=252, step=63, 
 
 def main():
     set_seed(0)
-    data = pd.read_parquet('dataset.parquet')
+    data = pd.read_parquet('test.parquet')
     rolling_train(data)
 
 if __name__ == '__main__':

@@ -132,9 +132,9 @@ class TsCv(nn.Module):
                 
                 mean_segment = segment.mean(dim=1, keepdim=True)
                 segment_centered = segment - mean_segment
-                
+
                 stddev = torch.sqrt((segment_centered**2).sum(dim=1) / (self.size - 1))
-                cv = stddev/mean_segment
+                cv = stddev/mean_segment.squeeze()
                 output[:, i, t] = cv
 
         return output
@@ -204,3 +204,4 @@ class TsMin(nn.Module):
                 output[:, i, t] = min_segment
 
         return output
+
