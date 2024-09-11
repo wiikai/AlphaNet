@@ -54,7 +54,7 @@ class AlphaNetV1(nn.Module):
         for pooling_layer in self.pooling_layers:
             results += [bn_layer(pooling_layer(feature)).squeeze(-1) for feature, bn_layer in zip(feature_outputs, self.bn_layers)]
                 
-        # 展平所有的特征输出
+        # 展平所有的特征输出 [batch_size, 144]
         x = torch.cat([f.view(f.size(0), -1) for f in results], dim=1)
         x = self.fc_layers(x)
         

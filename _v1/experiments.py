@@ -16,6 +16,9 @@ def set_seed(seed):
     random.seed(seed)
 
 def train_model(train_dataloader, val_dataloader, model, optimizer, epochs=50, early_stopping=10):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+
     patience_counter = 0
     best_loss = np.inf
     train_losses = []
@@ -26,12 +29,13 @@ def train_model(train_dataloader, val_dataloader, model, optimizer, epochs=50, e
         model.train()
         epoch_loss = 0.0
         for idx, (images, labels, _) in enumerate(train_dataloader):
+            images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
             outputs = model(images).squeeze()
             loss = F.mse_loss(outputs, labels)
-            if torch.isnan(loss).any():
-                print(f"Loss is NaN at epoch {epoch}, batch {idx}")
-                break
+            # if torch.isnan(loss).any():
+            #     print(f"Loss is NaN at epoch {epoch}, batch {idx}")
+            #     break
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
@@ -60,10 +64,14 @@ def train_model(train_dataloader, val_dataloader, model, optimizer, epochs=50, e
     return train_losses, val_losses, best_model
 
 def test_model(dataloader, model, epoch):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+
     model.eval()
     total_loss = 0.0
     with torch.no_grad():
         for idx, (images, labels, _) in enumerate(dataloader):
+            images, labels = images.to(device), labels.to(device)
             outputs = model(images).squeeze()
             loss = F.mse_loss(outputs, labels)
             total_loss += loss.item()
@@ -138,4 +146,4 @@ def main():
     rolling_train(data)
 
 if __name__ == '__main__':
-     main()
+    main()
