@@ -39,7 +39,7 @@ def train_model(train_dataloader, val_dataloader, model, optimizer, epochs=50, e
         for idx, (images, labels, _) in enumerate(train_dataloader):
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
-            outputs = model(images).squeeze()
+            outputs = model(images)
             loss = F.mse_loss(outputs, labels)
             # if torch.isnan(loss).any():
             #     print(f"Loss is NaN at epoch {epoch}, batch {idx}")
@@ -80,7 +80,7 @@ def test_model(dataloader, model, epoch):
     with torch.no_grad():
         for idx, (images, labels, _) in enumerate(dataloader):
             images, labels = images.to(device), labels.to(device)
-            outputs = model(images).squeeze()
+            outputs = model(images)
             loss = F.mse_loss(outputs, labels)
             total_loss += loss.item()
             if idx % 50 == 0:
@@ -88,7 +88,7 @@ def test_model(dataloader, model, epoch):
 
     return total_loss / len(dataloader)
 
-def rolling_train(data, window_size=504, train_size=252, val_size=252, step=63, gap=1, epochs=1, early_stopping=10, min=int(240/10), rollback=20):
+def rolling_train(data, window_size=504, train_size=252, val_size=252, step=63, gap=1, epochs=10, early_stopping=10, min=int(240/10), rollback=20):
     data_slice = rollback - 1
     levels = data.index.get_level_values('date').unique()
     num_features = len(data.columns) -1
@@ -101,8 +101,8 @@ def rolling_train(data, window_size=504, train_size=252, val_size=252, step=63, 
 
         window_dates = levels[i:i + window_size + gap * 2 + step + data_slice]
         train_dates = window_dates[:train_size + data_slice]
-        val_dates = window_dates[train_size + gap:train_size + gap + val_size + data_slice]
-        test_dates = window_dates[train_size + gap * 2 + val_size:train_size + gap * 2 + val_size + step + data_slice]
+        val_dates = window_dates[train_size + gap:train_size + val_size + gap  + data_slice]
+        test_dates = window_dates[train_size + val_size + gap * 2 :train_size + val_size + gap * 2 + step + data_slice]
 
         train_data = data.loc[train_dates]
         val_data = data.loc[val_dates]
@@ -142,7 +142,7 @@ def rolling_train(data, window_size=504, train_size=252, val_size=252, step=63, 
         predictions = pd.Series(index=test_data.loc[test_dates[-step:]].index)
         with torch.no_grad():
             for idx, (images, labels, nonrealize) in enumerate(test_dataloader):
-                outputs = model(images).squeeze().numpy()
+                outputs = model(images).numpy()
                 predictions.loc[test_dates[-step:][idx]][~predictions.loc[test_dates[-step:][idx]].index.isin(nonrealize)] = outputs
         
         res = pd.concat([res, predictions.unstack('order_book_id')], axis=0)
@@ -152,8 +152,12 @@ def rolling_train(data, window_size=504, train_size=252, val_size=252, step=63, 
 def main():
     set_seed(0)
     stop = '20240901'
-    rollback = get_previous_trading_date(stop, 504 + 63*7 + 1*2 + 20 -2)
+    rollback = get_previous_trading_date(stop, 504 + 63*1 + 1*2 + 20 -1)
     data = quotes_10min.read(start=rollback, stop=stop)
+    data.index = pd.MultiIndex.from_arrays(
+        [data.index.get_level_values('date').normalize(),
+        data.index.get_level_values('order_book_id')]
+     )
     rolling_train(data)
 
 if __name__ == '__main__':
