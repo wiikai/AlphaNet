@@ -118,6 +118,7 @@ class TsCv(nn.Module):
         super(TsCv, self).__init__()
         self.min = min
         self.stride = stride
+        self.eps = 1e-8
 
     def forward(self, x):
         batch_size, num_features, seq_length = x.shape
@@ -134,7 +135,8 @@ class TsCv(nn.Module):
                 segment_centered = segment - mean_segment
 
                 stddev = torch.sqrt((segment_centered**2).sum(dim=1) / (self.min - 1))
-                cv = stddev/mean_segment.squeeze()
+                cv = stddev/(mean_segment.squeeze() + self.eps)
+                cv = torch.where(torch.isnan(cv), torch.zeros_like(cv), cv)
                 output[:, i, t] = cv
 
         return output
@@ -202,6 +204,32 @@ class TsMin(nn.Module):
                 
                 min_segment = segment.min(dim=1)[0]
                 output[:, i, t] = min_segment
+
+        return output
+
+class TsAdd(nn.Module):
+    def __init__(self, min, stride):
+        super(TsAdd, self).__init__()
+        self.min = min
+        self.stride = stride
+
+    def forward(self, x):
+        batch_size, num_features, seq_length = x.shape
+        out_seq_length = (seq_length - self.min) // self.stride + 1
+        output = torch.zeros(batch_size, num_features * (num_features - 1) // 2, out_seq_length, device=x.device)
+
+        k = 0
+        for i in range(num_features):
+            for j in range(i + 1, num_features):
+                for t in range(out_seq_length):
+                    start = t * self.stride
+                    end = start + self.min
+                    segment_i = x[:, i, start:end]
+                    segment_j = x[:, j, start:end]
+                    
+                    add = (segment_i + segment_j).squeeze()
+                    output[:, k, t] = add
+                k += 1
 
         return output
 

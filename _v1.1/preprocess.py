@@ -86,7 +86,7 @@ def get_universe(start, stop):
 
 if __name__ == '__main__':
     stop = '20240901'
-    rollback = get_previous_trading_date(stop, 504 + 63*7 + 1*2 + 20 -2)
+    rollback = get_previous_trading_date(stop, 504 + 63*7 + 1*2 + 20 -1)
     universe = get_universe('20140101', stop)
 
     future = get_future(
@@ -95,7 +95,7 @@ if __name__ == '__main__':
         start=rollback, 
         stop=stop
         ).stack()
-    future.name = 'future'
+    future.name = 'future_1d'
 
     vwap = rqdatac.get_vwap(
         universe, 
@@ -119,8 +119,6 @@ if __name__ == '__main__':
     df['date'] = df.index.get_level_values('datetime').normalize()
     df = df.reset_index().sort_values(['date', 'order_book_id'])
     future = future.reset_index().sort_values(['date', 'order_book_id'])
-    df = pd.merge_asof(df, future, by='order_book_id', left_on='date', right_on='date', direction='backward')
-    df = df.drop(columns=['date']).rename(columns={'datetime': 'date'}).set_index(['date', 'order_book_id'])
-    df = df.sort_index()
+    df = pd.merge(df, future, on=['date', 'order_book_id'], how='inner')
+    df = df.drop(columns=['date']).rename(columns={'datetime': 'date'}).set_index(['date', 'order_book_id']).sort_index()
     quotes_10min.update(df)
-
