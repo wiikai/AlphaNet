@@ -233,3 +233,82 @@ class TsAdd(nn.Module):
 
         return output
 
+class TsSub(nn.Module):
+    def __init__(self, min, stride):
+        super(TsSub, self).__init__()
+        self.min = min
+        self.stride = stride
+
+    def forward(self, x):
+        batch_size, num_features, seq_length = x.shape
+        out_seq_length = (seq_length - self.min) // self.stride + 1
+        output = torch.zeros(batch_size, num_features * (num_features - 1) // 2, out_seq_length, device=x.device)
+
+        k = 0
+        for i in range(num_features):
+            for j in range(i + 1, num_features):
+                for t in range(out_seq_length):
+                    start = t * self.stride
+                    end = start + self.min
+                    segment_i = x[:, i, start:end]
+                    segment_j = x[:, j, start:end]
+                    
+                    add = (segment_i - segment_j).squeeze()
+                    output[:, k, t] = add
+                k += 1
+
+        return output
+
+class TsWeight(nn.Module):
+    def __init__(self, min, stride):
+        super(TsWeight, self).__init__()
+        self.min = min
+        self.stride = stride
+
+    def forward(self, x):
+        batch_size, num_features, seq_length = x.shape
+        out_seq_length = (seq_length - self.min) // self.stride + 1
+        output = torch.zeros(batch_size, num_features * (num_features - 1) // 2, seq_length, device=x.device)
+
+        k = 0  
+        for i in range(num_features):
+            for j in range(i + 1, num_features): 
+                for t in range(out_seq_length):
+                    start = t * self.stride
+                    end = start + self.min
+
+                    segment_i = x[:, i, start:end]
+                    segment_j = x[:, j, start:end]
+                    
+                    sum_segment = segment_i.sum(dim=1, keepdim=True)
+                    weight = segment_i / sum_segment
+
+                    weighted_product = weight * segment_j
+                    output[:, k, start:end] = weighted_product
+
+                k += 1 
+
+        return output
+    
+class TsLnret(nn.Module):
+    def __init__(self, min, stride):
+        super(TsLnret, self).__init__()
+        self.min = min  
+        self.stride = stride  
+
+    def forward(self, x):
+        batch_size, num_features, seq_length = x.shape
+        out_seq_length = (seq_length - self.min) // self.stride + 1
+        output = torch.zeros(batch_size, num_features, seq_length, device=x.device)
+
+        for i in range(num_features):
+            for t in range(out_seq_length):
+                start = t * self.stride
+                end = start + self.min
+                segment = x[:, i, start:end]
+
+                lnret = torch.log(segment[:, 1:] / segment[:, :-1])
+                output[:, i, start+1:end] = lnret
+
+        output = torch.where(torch.isnan(output), torch.zeros_like(output), output)
+        return output

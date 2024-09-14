@@ -1,10 +1,15 @@
 import torch
 import torch.nn as nn
-from operators import TsCorr, TsCov, TsSum, TsStddev, TsMean, TsCv, TsMax, TsMin, TsAdd
+from operators import TsCorr, TsCov, TsSum, TsStddev, TsMean, TsCv, TsMax, TsMin, TsAdd, TsSub, TsWeight
 
 class AlphaNetV1(nn.Module):
     def __init__(self, num_features, min, rolling):
         super(AlphaNetV1, self).__init__()
+        
+        # 输入层
+        self.input_layers = nn.ModuleList([
+            TsWeight(min=min, stride=min),
+        ])
 
         # 特征提取层
         self.feature_layers = nn.ModuleList([
@@ -18,6 +23,7 @@ class AlphaNetV1(nn.Module):
         # 交叉计算层
         self.cross_layers = nn.ModuleList([
             TsAdd(min=1, stride=1),
+            TsSub(min=1, stride=1),
         ])
 
         # 滚动层
@@ -28,7 +34,8 @@ class AlphaNetV1(nn.Module):
         ])
 
         # 因子数量
-        out_feature_length = (num_features * (num_features - 1) // 2) * 1  + num_features * 3
+        out_input_length =  (num_features * (num_features - 1) // 2) + num_features 
+        out_feature_length = (out_input_length * (out_input_length - 1) // 2) * 1  + out_input_length * 3
         out_cross_length = (out_feature_length * (out_feature_length - 1) // 2) * 1
         out_rolling_length = out_cross_length * 3
 
@@ -45,6 +52,9 @@ class AlphaNetV1(nn.Module):
         self._init_weights()
 
     def forward(self, x):
+        input_outputs = torch.cat([layer(x) for layer in self.input_layers], dim=1)
+        x = torch.cat([x, input_outputs], dim=1)
+
         feature_outputs = torch.cat([layer(x) for layer in self.feature_layers], dim=1)
         cross_outputs = torch.cat([layer(feature_outputs) for layer in self.cross_layers], dim=1)
         rolling_outputs = torch.cat([layer(cross_outputs) for layer in self.rooling_layers], dim=1)
