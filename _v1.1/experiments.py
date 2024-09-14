@@ -153,7 +153,7 @@ def main():
     set_seed(0)
     stop = '20240901'
     rollback = get_previous_trading_date(stop, 504 + 63*1 + 1*2 + 20 -1)
-    data = quotes_10min.read(start=rollback, stop=stop)
+    data = quotes_10min.read(['close', 'volume', 'num_trades', '10min_lnret', 'future_1d'], start=rollback, stop=stop).dropna()
     data.index = pd.MultiIndex.from_arrays(
         [data.index.get_level_values('date').normalize(),
         data.index.get_level_values('order_book_id')]
