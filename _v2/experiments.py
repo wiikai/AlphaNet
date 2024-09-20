@@ -1,6 +1,6 @@
 import torch
 import torch.optim as optim
-from model import AlphaNetV2
+from model import AlphaNetV2_gru, AlphaNetV2_lstm
 import torch.nn.functional as F
 from preprocess import create_dynamic_dataloader
 import pandas as pd
@@ -88,7 +88,7 @@ def test_model(dataloader, model, epoch):
 
     return total_loss / len(dataloader)
 
-def rolling_train(data, window_size=504, train_size=252, val_size=252, step=63, gap=1, epochs=20, early_stopping=5, min=int(240/10), rollback=20):
+def rolling_train(data, window_size=504, train_size=378, val_size=126, step=63, gap=1, epochs=1, early_stopping=5, min=int(240/10), rollback=20):
     data_slice = rollback - 1
     levels = data.index.get_level_values('date').unique()
     num_features = len(data.columns) -1
@@ -122,7 +122,7 @@ def rolling_train(data, window_size=504, train_size=252, val_size=252, step=63, 
         #     print(f'Batch nonrealize: {nonrealize}') 
         #     break 
     
-        model = AlphaNetV2(num_features=num_features, min=min, rolling=rollback)
+        model = AlphaNetV2_gru(num_features=num_features, min=min)
         optimizer = optim.Adam(model.parameters(), lr=0.0001)
         train_losses, val_losses, best_model = train_model(train_dataloader, val_dataloader, model, optimizer, epochs=epochs, early_stopping=early_stopping)
         torch.save(best_model, f'./test/{test_dates[-step:][0].strftime("%Y%m%d")}-{test_dates[-1].strftime("%Y%m%d")},({round(train_losses[val_losses.index(np.min(val_losses))],3)},{round(np.min(val_losses),3)}).pth')
