@@ -23,7 +23,7 @@
 
 ### _v2
 
-- **Enhancement**: Incorporates LSTM (Long Short-Term Memory) networks into the _v1.1 framework.
+- **Enhancement**: Incorporates LSTM and GRU networks into the _v1.1 framework.
 - **Rolling Calculations**: Removes rolling calculations.
 
 ---
