@@ -14,45 +14,39 @@ rqdatac.init(uri='tcp://rice:rice@192.168.10.40:16019')
 quotes_10min = quool.Factor("./data/quotes_10min", code_level="order_book_id", date_level="date")
 
 class StockDataset(Dataset):
-    def __init__(self, df, min, rollback=20):
+    def __init__(self, df):
         self.df = df
-        self.rollback = rollback  
-        self.min = min 
-        self.unique_dates = sorted(df.index.get_level_values('date').unique())
+        self.unique_dates = sorted(df.index.get_level_values('date').strftime('%Y-%m-%d').unique())
         
     def __len__(self):
-        return len(self.unique_dates) - self.rollback + 1
+        return len(self.unique_dates)
 
     def __getitem__(self, idx):
-        date_window = self.unique_dates[idx:idx + self.rollback]
-        window_data = self.df.loc[self.df.index.get_level_values('date').isin(date_window)]
+        date_str = self.unique_dates[idx]
+        date_data = self.df.loc[self.df.index.get_level_values('date').strftime('%Y-%m-%d') == date_str]
 
         data_images = []
         labels = []
-        removed_stocks = []
 
-        grouped = window_data.groupby(level='order_book_id')
+        grouped = date_data.groupby(level='order_book_id')
         for stock_id, stock_data in grouped:
             stock_data = stock_data.values
-            if stock_data.shape[0] == self.rollback * self.min:
-                data_images.append(stock_data[:, :-1]) 
-                labels.append(stock_data[-1, -1])
-            else:
-                removed_stocks.append(stock_id)
+            data_images.append(stock_data[:, :-1]) 
+            labels.append(stock_data[-1, -1]) 
 
         if data_images:
             data_images = np.array(data_images).transpose(0, 2, 1)
             labels = np.array(labels)
-            return torch.tensor(data_images, dtype=torch.float32), torch.tensor(labels, dtype=torch.float32), removed_stocks
+            return torch.tensor(data_images, dtype=torch.float32), torch.tensor(labels, dtype=torch.float32)
         else:
             return None
 
 def dynamic_collate_fn(batch):
-    images, labels, nonrealize = batch[0]  # batch_size=1, 所以直接取第一个元素
-    return images, labels, nonrealize
+    images, labels = batch[0]  # batch_size=1, 所以直接取第一个元素
+    return images, labels
 
-def create_dynamic_dataloader(df, min, rollback, shuffle=True):
-    dataset = StockDataset(df, min, rollback)
+def create_dynamic_dataloader(df, shuffle=True):
+    dataset = StockDataset(df)
     dataloader = DataLoader(dataset, batch_size=1, collate_fn=dynamic_collate_fn, shuffle=shuffle)
     return dataloader
 
