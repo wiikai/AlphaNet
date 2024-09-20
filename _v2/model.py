@@ -3,7 +3,7 @@ import torch.nn as nn
 from operators import TsCorr, TsCov, TsSum, TsStddev, TsMean, TsCv, TsMax, TsMin, TsAdd, TsSub, TsWeight
 
 class AlphaNetV2(nn.Module):
-    def __init__(self, num_features, min, rolling):
+    def __init__(self, num_features, min):
         super(AlphaNetV2, self).__init__()
         
         # 输入层
@@ -41,7 +41,10 @@ class AlphaNetV2(nn.Module):
                 num_layers=1,
                 batch_first=True
             )
-        self.fc = nn.Linear(30, 1)
+        
+        self.fc_layers = nn.Sequential(
+            nn.Linear(30, 1)
+        )
 
         self._init_weights()
 
@@ -56,12 +59,20 @@ class AlphaNetV2(nn.Module):
         lstm_out, (h_n, c_n) = self.lstm(x)  # 输入 x 大小为 [batch_size, time_step, lstm_input_dim]
         last_output = lstm_out[:, -1, :] # 最后一个时间步长的隐藏层
 
-        x = self.fc(last_output).squeeze()
+        x = self.fc_layers(last_output).squeeze()
         return x
         
     def _init_weights(self):
+        for name, param in self.lstm.named_parameters():
+            if 'weight_ih' in name:  
+                nn.init.xavier_uniform_(param.data)
+            elif 'weight_hh' in name:  
+                nn.init.orthogonal_(param.data)
+            elif 'bias' in name:  
+                param.data.fill_(0)
+
         for layer in self.fc_layers:
             if isinstance(layer, nn.Linear):
-                nn.init.xavier_uniform_(layer.weight) 
+                nn.init.xavier_uniform_(layer.weight)
                 nn.init.normal_(layer.bias, std=1e-6)
         

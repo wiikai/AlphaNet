@@ -88,7 +88,7 @@ def test_model(dataloader, model, epoch):
 
     return total_loss / len(dataloader)
 
-def rolling_train(data, window_size=504, train_size=252, val_size=252, step=63, gap=1, epochs=20, early_stopping=5, min=int(240/10), rollback=20):
+def rolling_train(data, window_size=504, train_size=378, val_size=126, step=63, gap=1, epochs=20, early_stopping=5, min=int(240/10), rollback=20):
     data_slice = rollback - 1
     levels = data.index.get_level_values('date').unique()
     num_features = len(data.columns) -1
