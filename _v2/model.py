@@ -17,7 +17,7 @@ class AlphaNetV2_lstm(nn.Module):
 
             TsStddev(min=min, stride=min),
             TsSum(min=min, stride=min),
-            # TsMean(min=min, stride=min),
+            TsCv(min=min, stride=min),
         ])
 
         # 交叉计算层
@@ -28,8 +28,8 @@ class AlphaNetV2_lstm(nn.Module):
 
         # 因子数量
         out_input_length =  (num_features * (num_features - 1) // 2) + num_features 
-        out_feature_length = (out_input_length * (out_input_length - 1) // 2) * 1 + out_input_length * 2
-        out_cross_length = (out_feature_length * (out_feature_length - 1) // 2) * 1
+        out_feature_length = (out_input_length * (out_input_length - 1) // 2) * 1 + out_input_length * 3
+        out_cross_length = (out_feature_length * (out_feature_length - 1) // 2) * 2
 
         # 批标准化层
         self.bn = nn.BatchNorm1d(out_cross_length)
@@ -92,7 +92,7 @@ class AlphaNetV2_gru(nn.Module):
 
             TsStddev(min=min, stride=min),
             TsSum(min=min, stride=min),
-            # TsMean(min=min, stride=min),
+            TsCv(min=min, stride=min),
         ])
 
         # 交叉计算层
@@ -103,14 +103,21 @@ class AlphaNetV2_gru(nn.Module):
 
         # 因子数量
         out_input_length =  (num_features * (num_features - 1) // 2) + num_features 
-        out_feature_length = (out_input_length * (out_input_length - 1) // 2) * 1 + out_input_length * 2
+        out_feature_length = (out_input_length * (out_input_length - 1) // 2) * 1 + out_input_length * 3
         out_cross_length = (out_feature_length * (out_feature_length - 1) // 2) * 2
 
         # 批标准化层
         self.bn = nn.BatchNorm1d(out_cross_length)
 
         # 全连接层      
-        self.gru = nn.GRU(
+        self.gru1 = nn.GRU(
+            input_size=out_cross_length, 
+            hidden_size=30, 
+            num_layers=1,
+            batch_first=True
+        )
+
+        self.gru2 = nn.GRU(
             input_size=out_cross_length, 
             hidden_size=30, 
             num_layers=1,
@@ -131,10 +138,10 @@ class AlphaNetV2_gru(nn.Module):
         cross_outputs = torch.cat([layer(feature_outputs) for layer in self.cross_layers], dim=1)
         x = self.bn(cross_outputs).transpose(1, 2)
 
-        gru1_out, _ = self.gru(x)  # 第一个 GRU 处理所有时间步
+        gru1_out, _ = self.gru1(x)  # 第一个 GRU 处理所有时间步
         last_output_gru1 = gru1_out[:, -1, :]  
 
-        gru2_out, _ = self.gru(x[:, 0:1, :])  # 第二个 GRU 处理第一个时间步，选择第一个时间步的特征
+        gru2_out, _ = self.gru2(x[:, 0:1, :])  # 第二个 GRU 处理第一个时间步，选择第一个时间步的特征
         last_output_gru2 = gru2_out[:, -1, :]  # GRU 的最后输出 [batch_size, 30]
 
         output = torch.cat([last_output_gru1, last_output_gru2], dim=1)  # [batch_size, 60]
@@ -142,7 +149,15 @@ class AlphaNetV2_gru(nn.Module):
         return x
         
     def _init_weights(self):
-        for name, param in self.gru.named_parameters():
+        for name, param in self.gru1.named_parameters():
+            if 'weight_ih' in name:
+                nn.init.xavier_uniform_(param.data)
+            elif 'weight_hh' in name:
+                nn.init.orthogonal_(param.data)
+            elif 'bias' in name:
+                param.data.fill_(0)
+        
+        for name, param in self.gru2.named_parameters():
             if 'weight_ih' in name:
                 nn.init.xavier_uniform_(param.data)
             elif 'weight_hh' in name:

@@ -48,8 +48,8 @@ def train_model(train_dataloader, val_dataloader, model, optimizer, epochs=50, e
             optimizer.step()
             epoch_loss += loss.item()
 
-            if idx % 50 == 0:
-                print('Current epoch: %d, Current train batch: %d, Loss is %.6f' %(epoch+1,idx+1,loss.item()))
+            # if idx % 50 == 0:
+            #     print('Current epoch: %d, Current train batch: %d, Loss is %.6f' %(epoch+1,idx+1,loss.item()))
 
         epoch_loss /= len(train_dataloader)
         train_losses.append(epoch_loss)
@@ -83,12 +83,12 @@ def test_model(dataloader, model, epoch):
             outputs = model(images)
             loss = F.mse_loss(outputs, labels)
             total_loss += loss.item()
-            if idx % 50 == 0:
-                print('Current epoch: %d, Current vali batch: %d, Loss is %.6f' %(epoch+1,idx+1,loss.item()))
+            # if idx % 50 == 0:
+            #     print('Current epoch: %d, Current vali batch: %d, Loss is %.6f' %(epoch+1,idx+1,loss.item()))
 
     return total_loss / len(dataloader)
 
-def rolling_train(data, window_size=504, train_size=378, val_size=126, step=63, gap=1, epochs=1, early_stopping=5, min=int(240/10), rollback=20):
+def rolling_train(data, window_size=504, train_size=378, val_size=126, step=63, gap=1, epochs=20, early_stopping=5, min=int(240/10), rollback=20):
     data_slice = rollback - 1
     levels = data.index.get_level_values('date').unique()
     num_features = len(data.columns) -1
@@ -112,7 +112,7 @@ def rolling_train(data, window_size=504, train_size=378, val_size=126, step=63, 
         val_dataloader = create_dynamic_dataloader(val_data, min=min, rollback=rollback, shuffle=True)
         test_dataloader = create_dynamic_dataloader(test_data, min=min, rollback=rollback, shuffle=False)
 
-        # for batch_images, batch_labels, nonrealize in train_dataloader:
+        # for batch_images, batch_labels, nonrealize in test_dataloader:
         #     print(f'Lenth of dataloader: {len(train_dataloader)}') 
         #     print(f'Batch images shape: {batch_images.shape}') 
         #     print(f'Batch labels shape: {batch_labels.shape}')
@@ -122,7 +122,7 @@ def rolling_train(data, window_size=504, train_size=378, val_size=126, step=63, 
         #     print(f'Batch nonrealize: {nonrealize}') 
         #     break 
     
-        model = AlphaNetV2_gru(num_features=num_features, min=min)
+        model = AlphaNetV2_lstm(num_features=num_features, min=min)
         optimizer = optim.Adam(model.parameters(), lr=0.0001)
         train_losses, val_losses, best_model = train_model(train_dataloader, val_dataloader, model, optimizer, epochs=epochs, early_stopping=early_stopping)
         torch.save(best_model, f'./test/{test_dates[-step:][0].strftime("%Y%m%d")}-{test_dates[-1].strftime("%Y%m%d")},({round(train_losses[val_losses.index(np.min(val_losses))],3)},{round(np.min(val_losses),3)}).pth')
@@ -155,7 +155,7 @@ def rolling_train(data, window_size=504, train_size=378, val_size=126, step=63, 
 def main():
     set_seed(0)
     stop = '20240901'
-    rollback = get_previous_trading_date(stop, 504 + 63*1 + 1*2 + 20 -1)
+    rollback = get_previous_trading_date(stop, 504 + 63*7 + 1*2 + 20 -1)
     data = quotes_10min.read(['close', 'volume', 'num_trades', 'future_1d'], start=rollback, stop=stop).dropna()
     data.index = pd.MultiIndex.from_arrays(
         [data.index.get_level_values('date').normalize(),
