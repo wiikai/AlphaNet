@@ -53,7 +53,14 @@ def dynamic_collate_fn(batch):
 
 def create_dynamic_dataloader(df, min, rollback, shuffle=True):
     dataset = StockDataset(df, min, rollback)
-    dataloader = DataLoader(dataset, batch_size=1, collate_fn=dynamic_collate_fn, shuffle=shuffle)
+    dataloader = DataLoader(
+                dataset, 
+                batch_size=8, 
+                collate_fn=dynamic_collate_fn, 
+                shuffle=shuffle,
+                num_workers=6,
+                pin_memory=True
+            )
     return dataloader
 
 def get_future(
@@ -122,4 +129,5 @@ if __name__ == '__main__':
     df = pd.merge(df, future, on=['date', 'order_book_id'], how='inner')
     df = df.drop(columns=['date']).rename(columns={'datetime': 'date'}).set_index(['date', 'order_book_id']).sort_index()
     quotes_10min.update(df)
+
 
