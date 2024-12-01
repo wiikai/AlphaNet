@@ -1,6 +1,6 @@
 # AlphaNet
 
-**AlphaNet** is a tool designed to traverse and extract features from raw stock volume and price data in an end-to-end manner. It supports various versions, each tailored for specific data inputs and processing techniques.
+**AlphaNet** is a tool designed to traverse and extract features from raw stock volume and price data in an end-to-end manner.
 
 ## Version Overview
 
